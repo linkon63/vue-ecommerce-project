@@ -8,8 +8,8 @@ import { useFirestore } from 'vuefire';
 const db = useFirestore();
 import { collection } from 'firebase/firestore';
 import { useRouter } from 'vue-router';
-import {loadStripe} from '@stripe/stripe-js';
-const stripeRef = ref()
+import { loadStripe } from '@stripe/stripe-js';
+const stripeRef = ref();
 const { state } = useState();
 
 const localState = reactive({
@@ -72,8 +72,14 @@ const cashOnDelivery = async () => {
         phone: localState.userData?.phone,
         orderProducts: state.atToCart,
         payment: false,
-        paymentId: ''
+        paymentId: '',
+        createdAt: new Date().toISOString()
     };
+    let totalPrice = 0;
+    for (let i = 0; i < orderObject.orderProducts.length; i++) {
+        totalPrice += orderObject.orderProducts[i].price * orderObject.orderProducts[i].totalOrderQuantity;
+    }
+    orderObject.totalPrice = totalPrice + '';
     console.log('orderObject', orderObject);
     try {
         const docRef = await addDoc(collection(db, 'order'), { ...orderObject });
@@ -86,13 +92,13 @@ const cashOnDelivery = async () => {
         alert('error occurred while creating account');
     }
 };
-let cardElement = reactive({})
+let cardElement = reactive({});
 
-onMounted( async () => {
+onMounted(async () => {
     localState.atToCart = [...state.atToCart];
     const stripe = await loadStripe('pk_test_51Ie1JhBHVweerPiKD5ZiauHVxaum4XV1yLjMsUHfkMPf2T7UKNlyHOJ0u0JDpztqmYSfu9R9nRsTA8gydkmksxSr00UdXEF7bv');
     console.log('stripe', stripe);
-    stripeRef.value = stripe
+    stripeRef.value = stripe;
 
     let elements = stripe.elements();
 
@@ -175,7 +181,7 @@ onMounted( async () => {
                         </section>
                         <section v-if="picked === 'Two'">
                             <section>
-                                <p>hello payment gateway</p>
+                                <p>We are cooking</p>
                                 <div id="#card-element"></div>
                                 <!-- <StripeElementCard :pk="localState.pk" /> -->
                             </section>
