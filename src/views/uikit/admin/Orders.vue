@@ -1,7 +1,7 @@
 <script setup>
-import { onMounted, reactive } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 
-import { doc, getDoc, addDoc, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, addDoc, getDocs, deleteDoc, updateDoc, orderBy } from 'firebase/firestore';
 
 import { useFirestore } from 'vuefire';
 const db = useFirestore();
@@ -9,8 +9,22 @@ const db = useFirestore();
 import { collection } from 'firebase/firestore';
 
 const state = reactive({
-    orderData: []
+    orderData: [],
+    backupProductData: []
 });
+
+const searchQuery = ref('')
+const searchProducts = (e) => {
+    const searchQuery = e.target.value;
+    if(searchQuery.length === 0) {
+        state.orderData = [...state.backupProductData];
+        return;
+    }
+    console.log('searchQuery', searchQuery);
+    const productArray = state.orderData.filter((product) => product.id.toLowerCase().includes(searchQuery.toLowerCase()));
+    console.log('productArray', productArray);
+    state.orderData = [...productArray];
+};
 
 const courierOrder = async (id, order) => {
     // refetch data
@@ -18,23 +32,25 @@ const courierOrder = async (id, order) => {
         const specificOrderRef = await doc(db, 'order', id);
         await updateDoc(specificOrderRef, {
             ...order,
-            courier: true
+            courier: true,
+            confirmedAt: new Date().toISOString()
         });
         alert('Order Update successfully !!');
-        await reFatch()
+        await reFatch();
     } catch (e) {
         console.log('Error getting products document:', e);
     }
 };
 const reFatch = async () => {
     const orderArray = [];
-    const querySnapshot = await getDocs(collection(db, 'order'));
+    const querySnapshot = await getDocs(collection(db, 'order'), orderBy('createdAt'));
     querySnapshot.forEach((doc) => {
         // doc.data() is never undefined for query doc snapshots
         orderArray.push({ ...doc.data(), id: doc.id });
     });
     console.log('All orders', orderArray);
-    state.orderData = [...orderArray];
+    state.orderData = [...orderArray].reverse();
+    state.backupProductData = [...orderArray].reverse();
 };
 onMounted(async () => {
     try {
@@ -54,6 +70,7 @@ onMounted(async () => {
                     <div v-if="state.orderData.length > 0" class="">
                         <div>
                             <p class="text-green-500 font-bold">Your Order list in your inventory</p>
+                            <input type="text" class="px-8 py-4 text-black rounded-xl border" v-model="searchQuery" @input="searchProducts" placeholder="Search products by ID..." />
                             <div>
                                 <!-- {{ state?.orderData }} -->
 
@@ -61,9 +78,13 @@ onMounted(async () => {
                                     <section class="">
                                         <section class="flex w-full items-start justify-between">
                                             <section class="capitalize border-green-500">
+                                                <p>OrderId: {{ order?.id }}</p>
                                                 <p>Name: {{ order?.name }}</p>
                                                 <p>Address: {{ order?.address }}</p>
                                                 <p>Phone: {{ order?.phone }}</p>
+                                                <p>Total Price: {{ order?.totalPrice }} Tk</p>
+                                                <p>created at : {{ order?.createdAt }}</p>
+                                                <p v-if="order.confirmedAt">Confirm at: {{ order?.confirmedAt }}</p>
                                             </section>
                                             <section class="mx-8 border-red-500">
                                                 <div v-for="product in order?.orderProducts" :key="product.id">
@@ -80,7 +101,7 @@ onMounted(async () => {
                                                 </div>
                                             </section>
                                             <section class="">
-                                                <Button v-if="!order?.courier" label="Complete" severity="warn" class="mx-4 my-8" @click="courierOrder(order?.id, order)" />
+                                                <Button v-if="!order?.courier" label="Not Complete" severity="warn" class="mx-4 my-8" @click="courierOrder(order?.id, order)" />
                                                 <Button v-else label="Completed" severity="primary" class="mx-4 my-8" disabled />
                                             </section>
                                         </section>

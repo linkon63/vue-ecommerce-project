@@ -2,7 +2,7 @@
 import Header from '@/components/shared/Header.vue';
 import ProductCategory from '@/components/landing-page/product-categories/Section.vue';
 import { onMounted, reactive } from 'vue';
-import { getDocs, where } from 'firebase/firestore';
+import { getDocs, orderBy, where } from 'firebase/firestore';
 import { useFirestore } from 'vuefire';
 import { collection } from 'firebase/firestore';
 import ProductCard from '@/components/landing-page/product/Card.vue';
@@ -17,7 +17,7 @@ onMounted(async () => {
     try {
         const email = sessionStorage.getItem('userEmail');
         console.log('email', email);
-        const q = query(collection(db, 'order'), where('email', '==', email));
+        const q = query(collection(db, 'order'), where('email', '==', email), orderBy('createdAt'));
 
         const querySnapshot = await getDocs(q);
         const productArray = [];
@@ -27,7 +27,7 @@ onMounted(async () => {
             productArray.push({ ...doc.data(), id: doc.id });
         });
         console.log('All products', productArray);
-        localState.productData = [...productArray];
+        localState.productData = [...productArray].reverse();
     } catch (e) {
         console.log('Error getting products document:', e);
     }
@@ -51,14 +51,17 @@ onMounted(async () => {
                         <!-- <ProductCard v-for="product in localState.productData" :title="product.name" :description="product.description" :price="product.price" :key="product" :img="product.productUrl" :product="product" /> -->
                     </div>
                 </div>
-                <div class="border" v-for="product in localState.productData" :key="product">
+                <div class="border my-2 bg-gray-300" v-for="product in localState.productData" :key="product">
+                    <p class="px-4 py-1 font-bold text-white shadow-md" :class="product.courier ? 'bg-green-500' : 'bg-red-500'">Order completed : {{ product.courier ? 'Product Sent to you' : 'Not Done Yet' }}</p>
                     <p>Name : {{ product?.name }}</p>
-                    <p class="bg-green-500 px-4 py-8">Order completed : {{ product.courier ? 'Product Sent to you' : 'Not Done Yet' }}</p>
                     <div v-for="order in product?.orderProducts" :key="order">
                         <p>Name : {{ order?.name }}</p>
                         <p>Price : {{ order?.price }}</p>
                         <p>totalOrderQuantity : {{ order?.totalOrderQuantity }}</p>
                     </div>
+                    <p>Total Price : {{ product.totalPrice ? product.totalPrice : 0 }}tk</p>
+                    <p>created at : {{ product?.createdAt }}</p>
+                    <p v-if="product.confirmedAt">Confirm at: {{ product?.confirmedAt }}</p>
                 </div>
             </section>
         </div>
