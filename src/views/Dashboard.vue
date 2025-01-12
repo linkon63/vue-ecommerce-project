@@ -1,23 +1,57 @@
 <script setup>
 import { useLayout } from '@/layout/composables/layout';
 import { ProductService } from '@/service/ProductService';
-import { onMounted, ref, watch } from 'vue';
+import { collection, getDocs, orderBy } from 'firebase/firestore';
+import { onMounted, reactive, ref, watch } from 'vue';
 
 const { getPrimary, getSurface, isDarkTheme } = useLayout();
+import { useFirestore } from 'vuefire';
+const db = useFirestore();
 
 const products = ref(null);
 const chartData = ref(null);
 const chartOptions = ref(null);
-
+const state = reactive({
+    orderData: [],
+    products: []
+});
 const items = ref([
     { label: 'Add New', icon: 'pi pi-fw pi-plus' },
     { label: 'Remove', icon: 'pi pi-fw pi-trash' }
 ]);
 
-onMounted(() => {
+const reFatch = async () => {
+    const orderArray = [];
+    const querySnapshot = await getDocs(collection(db, 'order'), orderBy('createdAt'));
+    querySnapshot.forEach((doc) => {
+        // doc.data() is never undefined for query doc snapshots
+        orderArray.push({ ...doc.data(), id: doc.id });
+    });
+    console.log('All orders', orderArray);
+    state.orderData = [...orderArray].reverse();
+};
+
+const productFetch = async () => {
+    try {
+        const productArray = [];
+        const querySnapshot = await getDocs(collection(db, 'products'));
+        querySnapshot.forEach((doc) => {
+            // doc.data() is never undefined for query doc snapshots
+            productArray.push({ ...doc.data(), id: doc.id });
+        });
+        console.log('All products', productArray);
+        state.products = productArray.length;
+    } catch (e) {
+        console.log('Error getting products document:', e);
+    }
+};
+
+onMounted(async () => {
     ProductService.getProductsSmall().then((data) => (products.value = data));
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
+    await reFatch();
+    await productFetch();
 });
 
 function setChartData() {
@@ -107,7 +141,7 @@ watch([getPrimary, getSurface, isDarkTheme], () => {
                 <div class="flex justify-between mb-4">
                     <div>
                         <span class="block text-muted-color font-medium mb-4">Orders</span>
-                        <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">152</div>
+                        <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">{{ state?.orderData.length > 0 ? state.orderData.length : 0 }}</div>
                     </div>
                     <div class="flex items-center justify-center bg-blue-100 dark:bg-blue-400/10 rounded-border" style="width: 2.5rem; height: 2.5rem">
                         <i class="pi pi-shopping-cart text-blue-500 !text-xl"></i>
@@ -121,11 +155,11 @@ watch([getPrimary, getSurface, isDarkTheme], () => {
             <div class="card mb-0">
                 <div class="flex justify-between mb-4">
                     <div>
-                        <span class="block text-muted-color font-medium mb-4">Revenue</span>
-                        <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">$2.100</div>
+                        <span class="block text-muted-color font-medium mb-4">Total Products</span>
+                        <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">{{ state.products ? state.products : 0 }}</div>
                     </div>
                     <div class="flex items-center justify-center bg-orange-100 dark:bg-orange-400/10 rounded-border" style="width: 2.5rem; height: 2.5rem">
-                        <i class="pi pi-dollar text-orange-500 !text-xl"></i>
+                        <i class="pi-shopping-cart text-orange-500 !text-xl"></i>
                     </div>
                 </div>
                 <span class="text-primary font-medium">%52+ </span>
